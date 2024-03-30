@@ -15,10 +15,11 @@ services:
       - POSTGRES_PASSWORD=radon2023
     volumes:
       # Mounted volume for Postgres DB
-      - /home/neo/data/postgres2:/var/lib/postgresql/data
+      - /home/sofia/data/postgres:/var/lib/postgresql/data
     # TODO: remove this port after testing is complete
     ports:
-      - "5452:5432"
+      #Used to be 5452:5432
+      - "5301:5302"
     networks:
       - radon_network
 
@@ -28,7 +29,8 @@ services:
     container_name: pgadmin
     user: 0:0 # TODO: use chown instead: https://www.pgadmin.org/docs/pgadmin4/latest/container_deployment.html#mapped-files-and-directories
     ports:
-      - "5453:80"
+      # Used to be 5453:80
+      - "5300:70"
     networks:
       - radon_network
     environment:
@@ -60,9 +62,10 @@ services:
     image: dockerneoc/radon:web-interface
     volumes:
       # FITS data volume, used to preview galaxy data
-      - /home/neo/data/fits:/fits-data
+      - /home/sofia/data/fits:/fits-data
     ports:
-      - "5450:8501"
+      # Previously 5450:8501
+      - "7777:8500"
     depends_on:
       - postgres
     networks:
