@@ -82,7 +82,9 @@ class PipelineEndpoint(Resource):
             }, 400)
 
         pipeline_config: Dict[str, Any] = request.get_json()
-        log.request(uid, f"Creating a new '{pipeline_type}' pipeline with the following configuration: {pipeline_config}")
+        image_repository: str = pipeline_config["image_repository"]
+        image_tag: str = pipeline_config["image_tag"]
+        log.request(uid, f"Creating a new '{pipeline_type}' pipeline using image '{image_repository}:{image_tag}'...")
 
         environment_vars: Dict[str, Any] = {}
         for key, value in pipeline_config.items():
@@ -92,7 +94,8 @@ class PipelineEndpoint(Resource):
 
         fits_volume: Mount = Mount(target="/fits-data", source=pipeline_config["fits_volume_path"], type="bind")
         new_ports = boot_container_until_success(
-            f"pipeline-{pipeline_type}",
+            repository=image_repository,
+            image_tag=image_tag,
             environment={
                 # Note: port & container ID information will be automatically added
             },

@@ -72,18 +72,26 @@ pipeline_config_expander = st.expander("Pipeline configurations", expanded=False
 
 # Global configurations (for all pipelines)
 pipeline_config: Dict[str, Any] = {
-    "fits_volume_path": pipeline_config_expander.text_input("FITS Path", value="/sharedata/raid0hdd/neo/data/fits")
+    "fits_volume_path": pipeline_config_expander.text_input("FITS Path", value="/sharedata/raid0hdd/neo/data/fits"),
+    # Also has 'image_repository' and 'image_tag', but those can be pre-filled based on pipeline type
 }
 
 # Pipeline-specific configurations
 if pipeline_type == "fetch":
     cols: List[st.delta_generator.DeltaGenerator] = pipeline_config_expander.columns(2)
+    pipeline_config["image_repository"]: str = cols[0].text_input("Image Repository", value="dockerneoc/radon")
+    pipeline_config["image_tag"]: str = cols[1].text_input("Image Tag", value="pipeline-fetch")
+
     pipeline_config["env_sql_batch_size"]: int = cols[0].number_input("Batch Size", value=200, min_value=100, max_value=500)
     pipeline_config["env_max_fails"]: int = cols[1].number_input("Max Fails", value=1, min_value=1, max_value=5)
 elif pipeline_type == "radon":
-    pass
+    cols: List[st.delta_generator.DeltaGenerator] = pipeline_config_expander.columns(2)
+    pipeline_config["image_repository"]: str = cols[0].text_input("Image Repository", value="dockerneoc/radon")
+    pipeline_config["image_tag"]: str = cols[1].text_input("Image Tag", value="pipeline-radon")
 elif pipeline_type == "augment":
-    pass
+    cols: List[st.delta_generator.DeltaGenerator] = pipeline_config_expander.columns(2)
+    pipeline_config["image_repository"]: str = cols[0].text_input("Image Repository", value="dockerneoc/radon")
+    pipeline_config["image_tag"]: str = cols[1].text_input("Image Tag", value="pipeline-augment")
 
 pipeline_config_expander.write("**Final Configurations:**")
 pipeline_config_expander.write(pipeline_config)

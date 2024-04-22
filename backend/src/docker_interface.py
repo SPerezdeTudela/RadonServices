@@ -1,6 +1,7 @@
 import atexit
 import traceback
 import uuid
+from threading import Thread
 from typing import Dict, List, Optional
 
 import docker
@@ -101,8 +102,21 @@ def boot_container_until_success(image_tag: str, count: int = 1, repository: str
             environment["CONTAINER_ID"] = container_id
 
             # Pull the image from the repository
-            log.info(f"Pulling '{repository}:{image_tag}' from Docker Hub...")
-            DOCKER_CLIENT.images.pull(repository, image_tag)
+            thread: Thread = Thread(target=_pull_image, args=(repository, image_tag))
+            thread.start()
+
+            print("Waiting for image to be pulled", end="")
+            seconds_waited = 0
+            while thread.is_alive():
+                if seconds_waited > 30:
+                    print("Error")
+                    print("Timed out while waiting for image to be pulled!")
+                    break
+
+                print(".", end="")
+                seconds_waited += 1
+
+            print("Done!")
 
             # Attempts to boot the container at the port
             new_container_object = DOCKER_CLIENT.containers.run(
@@ -139,6 +153,12 @@ def boot_container_until_success(image_tag: str, count: int = 1, repository: str
 
     log.info(f"Successfully booted {count} containers for tag '{image_tag}'!")
     return new_ports
+
+
+def _pull_image(repository: str, image_tag: str):
+    log.info(f"Pulling '{repository}:{image_tag}' from Docker Hub...")
+    DOCKER_CLIENT.images.pull(repository, image_tag)
+    log.info(f"Successfully pulled '{repository}:{image_tag}' from Docker Hub!")
 
 
 def _teardown():

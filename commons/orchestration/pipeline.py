@@ -67,6 +67,11 @@ class AbstractPipelineShutdownCallback:
         raise NotImplementedError
 
 
+class DummyPipelineShutdownCallback(AbstractPipelineShutdownCallback):
+    def execute(self, container_id: str, container_port: int):
+        print(f"Shutting down pipeline at {container_id}:{container_port}")
+
+
 class BackendPipelineShutdownCallback(AbstractPipelineShutdownCallback):
     def execute(self, container_id: str, container_port: int):
         try:

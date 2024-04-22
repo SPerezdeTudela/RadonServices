@@ -31,6 +31,23 @@ CREATE TABLE rotations
     FOREIGN KEY (source_id, band) REFERENCES bands (source_id, band) ON DELETE CASCADE
 );
 
+-- Galaxy Details View: combined data from galaxies, bands and rotations
+CREATE VIEW galaxy_details AS
+SELECT g.id            AS galaxy_id,
+       g.source_id     AS galaxy_source_id,
+       g.ra            AS galaxy_ra,
+       g.dec           AS galaxy_dec,
+       g.bin_id        AS galaxy_bin_id,
+       g.status        AS galaxy_status,
+       b.band          AS band_band,
+       b.error_count   AS band_error_count,
+       r.degree        AS rotations_degree,
+       r.total_error   AS rotations_total_error,
+       r.running_count AS rotations_running_count
+FROM galaxies g
+         JOIN bands b ON g.source_id = b.source_id
+         LEFT JOIN rotations r ON b.source_id = r.source_id AND b.band = r.band;
+
 -- Unused
 CREATE TABLE ellipticity
 (

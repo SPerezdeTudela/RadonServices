@@ -13,13 +13,9 @@ class BandFitsBuilder:
     def __init__(self, fits_data: np.ndarray):
         self._fits_data: np.ndarray = fits_data
 
-        self._should_preprocess: bool = False
+        self._should_preprocess: bool = True
         self._mask_generator: Optional[AbstractMaskGenerator] = None
         self._denoiser: Optional[AbstractDenoiser] = None
-
-    def preprocess(self) -> "BandFitsBuilder":
-        self._should_preprocess = True
-        return self
 
     def mask(self, mask_generator: AbstractMaskGenerator) -> "BandFitsBuilder":
         self._mask_generator = mask_generator
@@ -38,6 +34,7 @@ class BandFitsBuilder:
             self._fits_data = self._mask_generator.apply_mask(self._fits_data)
 
         if self._denoiser:
+            # TODO: fix this
             self._fits_data = self._denoiser.denoise(self._fits_data, mask)
 
         return self._fits_data
