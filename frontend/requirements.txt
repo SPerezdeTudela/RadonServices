@@ -1,6 +1,0 @@
-astropy==5.2.2
-matplotlib==3.7.1
-numpy==1.24.3
-psycopg2-binary==2.9.6
-requests==2.31.0
-streamlit==1.32.2

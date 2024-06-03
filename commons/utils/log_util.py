@@ -28,4 +28,4 @@ def _print(level: str, message: str, file: TextIO = sys.stdout):
     date = f"{now.month}/{now.day}"
     time = f"{now.hour:02d}:{now.minute:02d}:{now.second:02d}"
     message = f"[{level}] {date} {time} >> {message}"
-    print(message, file=file)
+    print(message, file=file, flush=True)

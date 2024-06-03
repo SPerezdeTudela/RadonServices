@@ -6,8 +6,7 @@ WORKDIR /app
 
 # Install system dependencies
 RUN apt-get update
-RUN apt-get install -y gcc
-#RUN apk add gcc # make gcc g++ python3-dev postgresql-dev musl-dev
+RUN apt-get install -y build-essential python3-dev libpq-dev gfortran libopenblas-dev
 
 # Clean up package lists to reduce image size
 RUN rm -rf /var/lib/apt/lists/*
@@ -23,4 +22,4 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 # Invoke entrypoint script
-CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--timeout", "120", "--chdir", "/src", "app:app"]
+CMD ["python", "-u", "src/entry.py"]

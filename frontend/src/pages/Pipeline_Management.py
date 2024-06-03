@@ -3,28 +3,29 @@ from typing import Any, Dict, List
 import requests
 import streamlit as st
 
-BACKEND_BASE_URL = "http://orchestrator:5000"
+from commons.constants.pipeline_constants import ContainerType
+from src.frontend_constants import CONTAINER_MODE, PIPELINE_DESCRIPTIONS
+from src.interfaces import get_orchestrator_url
 
-PIPELINE_DESCRIPTIONS = {
-    "fetch": "Fetches galaxies from the database and saves them as FITS files",
-    "radon": "Applies the Radon transform to calculate the position-angle of galaxies",
-    "augment": "Estimates radon pipeline's errors by augmenting the galaxies"
-}
-
-st.set_page_config(page_title="Pipeline Status")
+st.set_page_config(page_title=f"Pipeline Status ({CONTAINER_MODE})")
 
 
 @st.cache_data
-def get_pipelines():
-    response = requests.get(f"{BACKEND_BASE_URL}/pipelines/all")
-    if response.status_code != 200:
-        return None
-    return response.json()["pipelines"]
+def get_pipelines() -> Dict[ContainerType, List[Dict[str, Any]]]:
+    pipelines = {}
+    for container_type in ContainerType.get_pipeline_types():
+        container_type_str = container_type.value
+        response = requests.get(f"{get_orchestrator_url()}/pipelines/{container_type_str}")
+        if response.status_code != 200:
+            continue
+        pipelines[container_type] = response.json()["containers"]
+
+    return pipelines
 
 
 @st.cache_data
 def get_pipeline_batch_status(container_id):
-    container_status_response = requests.get(f"{BACKEND_BASE_URL}/pipelines/status/{container_id}")
+    container_status_response = requests.get(f"{get_orchestrator_url()}/pipelines/status/{container_id}")
     if container_status_response.status_code != 200:
         return None
     return container_status_response.json()["status"]
@@ -32,7 +33,7 @@ def get_pipeline_batch_status(container_id):
 
 @st.cache_data
 def get_pipeline_instant_status(container_id):
-    container_status_response = requests.get(f"{BACKEND_BASE_URL}/pipelines/status/{container_id}?instant=true")
+    container_status_response = requests.get(f"{get_orchestrator_url()}/pipelines/status/{container_id}?instant=true")
     if container_status_response.status_code != 200:
         return None
     return container_status_response.json()["status"]
@@ -99,7 +100,7 @@ pipeline_config_expander.write(pipeline_config)
 # ======================================================================
 create_pipeline_button = st.button(label="Create Pipeline")
 if create_pipeline_button:
-    response = requests.post(f"{BACKEND_BASE_URL}/pipelines/{pipeline_type}", json=pipeline_config)
+    response = requests.post(f"{get_orchestrator_url()}/pipelines/{pipeline_type}", json=pipeline_config)
     st.session_state.create_pipeline_response_code = response.status_code
     st.session_state.create_pipeline_response = response.json()
     clear_all_cache()
@@ -115,20 +116,19 @@ else:
 # Pipeline status
 st.divider()
 st.header("Pipeline Status")
-pipelines = get_pipelines()
+pipelines: Dict[ContainerType, List[Dict[str, Any]]] = get_pipelines()
+
 if not pipelines:
     st.write("No active pipelines")
     st.stop()
 
-
-def name_transform(p_type):
-    return f"pipeline-{p_type.lower()}"
-
-
-pipeline_types = ["Fetch", "Radon", "Augment"]
-tabs = st.tabs([f"{p_type} ({len(pipelines.get(name_transform(p_type), []))})" for p_type in pipeline_types])
+pipeline_types: List[ContainerType] = ContainerType.get_pipeline_types()
+tabs = st.tabs([f"{p_type.value.title()} ({len(pipelines.get(p_type, []))})" for p_type in pipeline_types])
 for tab_index, pipeline_type in enumerate(pipeline_types):
-    containers = pipelines.get(name_transform(pipeline_type), [])
+    tab_index: int
+    pipeline_type: ContainerType
+
+    containers: List[Dict[str, Any]] = pipelines.get(pipeline_type, [])
     with tabs[tab_index]:
         for i, container in enumerate(containers):
             with st.container(border=True):
@@ -150,7 +150,7 @@ for tab_index, pipeline_type in enumerate(pipeline_types):
                 # Shutdown button
                 shutdown_button = st.button(label="Shutdown Container", key=container['id'])
                 if shutdown_button:
-                    response = requests.delete(f"{BACKEND_BASE_URL}/pipelines/{pipeline_type}", json={"container_id": container['id']})
+                    response = requests.delete(f"{get_orchestrator_url()}/pipelines/{pipeline_type.value}", json={"container_id": container['id']})
                     if response.status_code != 200:
                         st.write(f"Failed to shutdown container: {response.json()['error']}")
                     else:

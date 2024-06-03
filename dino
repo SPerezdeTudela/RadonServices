@@ -1,0 +1,4 @@
+#!/bin/sh
+
+working_directory=$(pwd)
+python3 "$working_directory/dinolib/dino.py" --cwd $working_directory "$@"

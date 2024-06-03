@@ -4,13 +4,14 @@ from flask import Flask, jsonify
 from flask_restful import Api
 
 import commons.utils.log_util as log
+from constants import CONTAINER_MODE
 from endpoints.pipeline_control import PipelineEndpoint
 from endpoints.pipeline_status import PipelineStatusEndpoint
 
 
-def create_app(options=None) -> Flask:
+def create_app() -> Flask:
     flask_app: Flask = Flask(__name__)
-    if options:
+    if CONTAINER_MODE != "production":
         flask_app.config.from_mapping({"TESTING": True})
 
     flask_api: Api = Api(flask_app)

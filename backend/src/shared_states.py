@@ -1,56 +1,80 @@
-from collections import defaultdict
-from typing import Dict, List, Optional
+from typing import Optional, Set
 
-from docker.models.containers import Container
+import redis
 
-
-###########################
-# Docker Container States #
-###########################
-class DynamicContainer:
-    def __init__(self, container: Container, container_id: str, pipeline_type: str, port: int):
-        self.container: Container = container
-        self.container_id: str = container_id
-        self.pipeline_type: str = pipeline_type
-        self.port: int = port
-
-    def __str__(self) -> str:
-        return f"DynamicContainer({self.container_id}, {self.pipeline_type}, {self.port})"
+from commons.constants.pipeline_constants import ContainerType, STARTING_PORT_NUMBER
+from commons.utils.redis_utils import RedisClient, AbstractRedisClientFactory, ClothoDockerRedisClientFactory, LocalRedisClientFactory
+from docker_interface import PipelineContainer
+from constants import CONTAINER_MODE
 
 
-# Map of { pipeline type => list of DynamicContainer objects }
-PIPELINE_CONTAINERS: Dict[str, List[DynamicContainer]] = defaultdict(list)
+class RedisKey:
+    @staticmethod
+    def container_by_id_key(container_id: str) -> str:
+        return f"container-id:str:{container_id}"
+
+    @staticmethod
+    def container_set_by_type_key(container_type: ContainerType) -> str:
+        return f"container-type:set:{container_type.value}"
+
+    @staticmethod
+    def current_port_key() -> str:
+        return "current-port:int"
 
 
-def get_pipeline_type(pipeline_id: str) -> Optional[str]:
-    for pipeline_type, containers in PIPELINE_CONTAINERS.items():
-        for container in containers:
-            if container.container_id == pipeline_id:
-                return pipeline_type
-    return None
+class RedisInterface:
+    def __init__(self, redis_client: RedisClient):
+        self.redis_client: RedisClient = redis_client
+
+    def get_container_by_id(self, container_id: str) -> Optional[PipelineContainer]:
+        with self.redis_client.connection() as r:
+            r: redis.Redis
+            data: str = r.get(RedisKey.container_by_id_key(container_id))
+
+        if data is None:
+            return None
+        return PipelineContainer.deserialize(data)
+
+    def create_container_by_id(self, container: PipelineContainer):
+        """ Creates a new container in the cache, updating both the container data entry and the container type set """
+        container_key: str = RedisKey.container_by_id_key(container.container_id)
+        container_type_key: str = RedisKey.container_set_by_type_key(container.pipeline_type)
+
+        with self.redis_client.connection() as r:
+            r: redis.Redis
+            # Set the container data
+            r.set(container_key, container.serialize())
+            # Add the container ID to the container type set
+            r.sadd(container_type_key, container.container_id)
+
+    def delete_container_by_id(self, container: PipelineContainer):
+        """ Deletes a container from the cache, removing from both the container data entry and the container type set """
+        container_key: str = RedisKey.container_by_id_key(container.container_id)
+        container_type_key: str = RedisKey.container_set_by_type_key(container.pipeline_type)
+
+        with self.redis_client.connection() as r:
+            r: redis.Redis
+            # Delete the container data
+            r.delete(container_key)
+            # Remove the container ID from the container type set
+            r.srem(container_type_key, container.container_id)
+
+    def get_container_ids_by_type(self, container_type: ContainerType) -> Set[str]:
+        with self.redis_client.connection() as r:
+            r: redis.Redis
+            container_ids: Set[str] = r.smembers(RedisKey.container_set_by_type_key(container_type))
+        return container_ids
+
+    def get_next_port(self) -> int:
+        with self.redis_client.connection() as r:
+            r: redis.Redis
+            return r.incr(RedisKey.current_port_key(), amount=STARTING_PORT_NUMBER)
 
 
-def get_container_by_id(container_id: str) -> Optional[DynamicContainer]:
-    for containers in PIPELINE_CONTAINERS.values():
-        for container in containers:
-            if container.container_id == container_id:
-                return container
-    return None
+def create_redis_interface(production: bool = True) -> RedisInterface:
+    client_factory: AbstractRedisClientFactory = ClothoDockerRedisClientFactory() if production else LocalRedisClientFactory()
+    return RedisInterface(client_factory.create())
 
 
-def get_container_address(container_id: str):
-    """ Returns the address of the container with the given ID """
-    container: Optional[DynamicContainer] = get_container_by_id(container_id)
-    if container is None:
-        return None
-
-    ip: str = container.container.attrs['Config']['Hostname']
-    return f"http://{ip}:{container.port}"
-
-
-##########################
-# Pipeline Status States #
-##########################
-# Map of { container_id => JSON object (dict) }
-# - contains only the data of the latest iteration (previous iterations are overridden)
-CONTAINER_STATUS: Dict[str, Dict[str, any]] = defaultdict(dict)
+# Initialize the Redis interface
+redis_interface: RedisInterface = create_redis_interface(CONTAINER_MODE == "production")

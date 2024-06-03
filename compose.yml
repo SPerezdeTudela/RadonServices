@@ -5,6 +5,7 @@ version: "3"
 # - 5452: reserved for testing -- postgres database
 # - 5453: pgAdmin web interface
 
+# Pipeline containers will be spawned dynamically, so they are not defined here
 services:
   # Metadata database
   postgres:
@@ -45,6 +46,8 @@ services:
   orchestrator:
     container_name: orchestrator
     image: dockerneoc/radon:orchestrator
+    environment:
+      - CONTAINER_MODE=production
     volumes:
       # Docker socket so that the orchestrator can dynamically spawn containers
       - $XDG_RUNTIME_DIR/docker.sock:/var/run/docker.sock
@@ -53,6 +56,7 @@ services:
     # - "5451:5000"
     depends_on:
       - postgres
+      - redis
     networks:
       - radon_network
 
@@ -60,6 +64,8 @@ services:
   frontend:
     container_name: frontend
     image: dockerneoc/radon:web-interface
+    environment:
+      - CONTAINER_MODE=production
     volumes:
       # FITS data volume, used to preview galaxy data
       - /home/sofia/data/fits:/fits-data
@@ -68,10 +74,19 @@ services:
       - "7777:8500"
     depends_on:
       - postgres
+      - orchestrator
     networks:
       - radon_network
 
-  # Pipeline containers will be spawned dynamically, so they are not defined here
+  # Redis caching container
+  redis:
+    container_name: redis
+    image: redis:7.2.4
+    command: redis-server --save 60 1 --loglevel warning
+    volumes:
+      - /home/neo/data/redis:/data
+    networks:
+      - radon_network
 
 networks:
   radon_network:

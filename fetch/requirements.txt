@@ -1,7 +1,0 @@
-astropy==5.2.2
-Flask==3.0.2
-Flask-RESTful==0.3.10
-numpy==1.24.3
-psycopg2==2.9.6
-requests==2.31.0
-tqdm==4.65.0

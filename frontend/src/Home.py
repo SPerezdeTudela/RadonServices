@@ -3,16 +3,12 @@ from astropy.io import fits
 from matplotlib import pyplot as plt
 from psycopg2 import sql
 
-from commons.utils.sql_utils import AbstractPostgresClientFactory, PostgresClient, ClothoDockerPostgresClientFactory
-
-# postgres_factory: AbstractPostgresClientFactory = LocalPostgresClientFactory()
-postgres_factory: AbstractPostgresClientFactory = ClothoDockerPostgresClientFactory()
-postgres_client: PostgresClient = postgres_factory.create()
+from src.interfaces import get_postgres_client
 
 
 @st.cache_data
 def fetch_status_data():
-    with postgres_client.cursor() as cursor:
+    with get_postgres_client().cursor() as cursor:
         cursor.execute(sql.SQL("SELECT status, COUNT(*) FROM galaxies GROUP BY status"))
         results = cursor.fetchall()
         if not results:
@@ -28,7 +24,7 @@ def fetch_galaxy_data(preview_galaxy_id):
         id_int = int(preview_galaxy_id)
     except ValueError:
         return None
-    with postgres_client.cursor() as cursor:
+    with get_postgres_client().cursor() as cursor:
         cursor.execute(sql.SQL(f"""
             SELECT * FROM galaxies
             WHERE id={id_int} OR source_id='{preview_galaxy_id}'
@@ -43,7 +39,7 @@ def fetch_galaxy_data(preview_galaxy_id):
 def fetch_galaxy_rotation_data(preview_galaxy_id):
     if not preview_galaxy_id:
         return None
-    with postgres_client.cursor() as cursor:
+    with get_postgres_client().cursor() as cursor:
         cursor.execute(sql.SQL(f"""
             SELECT * FROM fits_data
             WHERE source_id='{preview_galaxy_id}'
